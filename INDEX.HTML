@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Channel Video Fetcher</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      padding: 2em;
+    }
+    input, button {
+      padding: 0.5em;
+      margin-top: 1em;
+      width: 100%;
+    }
+    .video {
+      background: white;
+      padding: 1em;
+      margin-top: 1em;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>YouTube Channel Video Fetcher</h1>
+  <p>Paste a YouTube channel URL (like <code>https://www.youtube.com/@LinusTechTips</code>)</p>
+  <input type="text" id="channelInput" placeholder="YouTube channel URL" />
+  <button onclick="fetchVideos()">Fetch Videos</button>
+
+  <div id="results"></div>
+
+  <script>
+    function extractChannelId(url) {
+      // Convert /@username to channel ID via unofficial endpoint
+      return fetch('https://yt.lemnoslife.com/channels?handle=' + encodeURIComponent(url.split('@')[1]))
+        .then(res => res.json())
+        .then(data => data.items[0].id)
+    }
+
+    async function fetchVideos() {
+      const input = document.getElementById("channelInput").value;
+      const results = document.getElementById("results");
+      results.innerHTML = "Loading...";
+
+      try {
+        const channelId = input.includes("channel/") ? input.split("channel/")[1] :
+                          input.includes("@") ? await extractChannelId(input) : null;
+
+        if (!channelId) {
+          results.innerHTML = "Invalid channel URL.";
+          return;
+        }
+
+        const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+        const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+
+        if (!data.items) {
+          results.innerHTML = "No videos found.";
+          return;
+        }
+
+        results.innerHTML = data.items.map(video => `
+          <div class="video">
+            <strong>${video.title}</strong><br>
+            <a href="${video.link}" target="_blank">${video.link}</a><br>
+            <small>${new Date(video.pubDate).toLocaleString()}</small>
+          </div>
+        `).join("");
+      } catch (e) {
+        results.innerHTML = "Error fetching videos.";
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>
